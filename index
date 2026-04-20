@@ -1,0 +1,394 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>燕云十六声 · 缘起 | 全角色剧情互动小说</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            background: #1a120b;
+            font-family: 'Segoe UI', '华文楷书', 'Microsoft YaHei', '宋体', serif;
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+        .game-container {
+            max-width: 800px;
+            width: 100%;
+            background: #2e241f;
+            border-radius: 32px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.05);
+            overflow: hidden;
+            border: 1px solid #c2a575;
+        }
+        .status-bar {
+            background: #1f1813;
+            padding: 12px 20px;
+            display: flex;
+            justify-content: space-between;
+            color: #e9d6b0;
+            font-size: 14px;
+            border-bottom: 1px solid #4a3727;
+            font-family: monospace;
+        }
+        .day-counter, .affection-bar {
+            background: #2a1e16;
+            padding: 4px 12px;
+            border-radius: 40px;
+        }
+        .sprite-area {
+            height: 280px;
+            background: #2a1f18;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            position: relative;
+            border-bottom: 2px solid #c2a575;
+            background-image: radial-gradient(circle at 10% 20%, #3e2c20 1%, transparent 1%);
+            background-size: 20px 20px;
+        }
+        .sprite-placeholder {
+            text-align: center;
+            color: #b89a6e;
+            font-size: 14px;
+            background: rgba(0,0,0,0.5);
+            padding: 8px 16px;
+            border-radius: 60px;
+            backdrop-filter: blur(4px);
+        }
+        .sprite-img {
+            max-height: 260px;
+            max-width: 100%;
+            object-fit: contain;
+            filter: drop-shadow(0 4px 12px rgba(0,0,0,0.4));
+        }
+        .dialog-box {
+            background: #221b15e6;
+            backdrop-filter: blur(8px);
+            margin: 20px;
+            padding: 24px 28px;
+            border-radius: 48px;
+            border: 1px solid #c2a57560;
+            min-height: 200px;
+        }
+        .speaker {
+            font-size: 20px;
+            font-weight: bold;
+            color: #f3d382;
+            margin-bottom: 12px;
+            border-left: 4px solid #e4b363;
+            padding-left: 16px;
+        }
+        .message {
+            font-size: 18px;
+            line-height: 1.55;
+            color: #f7efdf;
+            text-shadow: 0 1px 1px black;
+            white-space: pre-wrap;
+        }
+        .choices-area {
+            padding: 12px 20px 28px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 14px;
+            justify-content: center;
+        }
+        .choice-btn {
+            background: #302418;
+            border: 1px solid #c6a15b;
+            color: #ffefcf;
+            padding: 10px 24px;
+            border-radius: 60px;
+            font-size: 16px;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-family: inherit;
+            text-align: center;
+        }
+        .choice-btn:hover {
+            background: #4f3824;
+            border-color: #ecc27a;
+            transform: scale(1.02);
+        }
+        .reset-btn {
+            position: fixed;
+            bottom: 24px;
+            right: 24px;
+            background: #2c1e14;
+            border: 1px solid #b48b48;
+            color: #dbbd86;
+            padding: 8px 20px;
+            border-radius: 40px;
+            cursor: pointer;
+            font-size: 14px;
+            z-index: 99;
+        }
+        @media (max-width: 600px) {
+            .dialog-box { padding: 18px; margin: 12px; }
+            .message { font-size: 16px; }
+            .choice-btn { font-size: 14px; padding: 8px 12px; }
+            .sprite-area { height: 220px; }
+        }
+    </style>
+</head>
+<body>
+<div class="game-container" id="gameRoot">
+    <div class="status-bar">
+        <span class="day-counter" id="dayDisplay">序章 · 燕云初啼</span>
+        <span class="affection-bar" id="affectionDisplay">❤️ 羁绊 · 未启</span>
+    </div>
+    <div class="sprite-area" id="spriteArea">
+        <div class="sprite-placeholder" id="spritePlaceholder">⚔️ 缘起 · 待君入梦 ⚔️</div>
+        <img id="charSprite" class="sprite-img" style="display:none;" alt="角色立绘">
+    </div>
+    <div class="dialog-box">
+        <div class="speaker" id="speakerName">——</div>
+        <div class="message" id="dialogText">载入江湖旧梦……</div>
+    </div>
+    <div class="choices-area" id="choicesContainer"></div>
+</div>
+<button class="reset-btn" id="resetGameBtn">✧ 重历红尘 ✧</button>
+
+<script>
+    // ----------------------------- 完整剧情数据 ---------------------------------
+    // 每个角色独立完整剧情 (楔子+初见+七日+归处+枯骨整合为连贯叙事)
+    const fullScripts = {
+        YaoYaoYao: {
+            name:"姚药药", title:"青梅煮酒 · 医馆故人", imgKey:"yaoyaoyao",
+            content:[
+                "楔子 · 药方\n\n我在活人医馆的旧纸堆里翻到了那张药方。\n纸张泛黄，字迹娟秀：“四物汤方，赠沈郎。愿君平安归来。”\n掌柜说，她姓姚名药药，活人医馆第三代传人。滹沱河之战后瘟疫横行，她救人染病而亡，手里还握着那把木梳。\n手札上写：“沈郎说要当大侠，我说那我当神医的夫君，他跑了三天，回来带了一捧野花。”\n最后一页：“若君归来时我已不在，望君勿念。”\n我合上手札，坐在医馆门槛上，月亮很圆。",
+                "初见 · 枣树下\n\n幻境中，我站在那棵活了一千年的枣树下，听见身后有人问：“这位客官，来看病的？”\n她眉眼温婉，青布衣衫，木簪挽发。\n“沈寻。”\n她手指一顿：“我认识一个人，也姓沈。”\n“他去了战场，再也没回来。”\n我伸出手腕让她把脉：“心疾。”\n她耳根微红：“神医也治不了相思。”\n接过安神药方，我低声说：“过几天再来……来看你。”\n她轻轻道：“沈郎，路上小心。”",
+                "七日 · 朝夕\n\n我每天去医馆帮她碾药、修屋顶、在枣树下搭了秋千。\n第七日傍晚，夕阳落满肩头，她靠在我身上：“你有没有觉得，我们好像认识很久了？”\n“上辈子你是我的大夫，救了我的命，可我没能回来。”\n她攥紧我的衣袖，没有追问。\n幻境将散，她轻声说：“若君归来时我已不在，望君勿念。”\n我握住她的手：“我不念，我只想你。”",
+                "归处 · 枯骨\n\n活人医馆后院，一座无碑孤坟。\n我把木梳和复刻的药方放在坟前：“药药，我来看你了。你的药方我收到了，隔了一千年，但还是收到了。”\n“那个沈郎没回来……但我回来了。我不是他，可他的木梳在你手里，你的药方在我心里。”\n枣叶落满肩头，像一场迟到了千年的拥抱。"
+            ],
+            epilogue: "活人医馆的枣树年年结果，秋千早已朽烂，但风过时总像有人低语：“沈郎，路上小心。”"
+        },
+        YingYing: { name:"盈盈", title:"东阙 · 天降落难", imgKey:"yingying", content:[
+            "楔子 · 那封信\n\n未央城废墟，雨夜。我从石缝中找到油布包裹的信：“东阙吾妻，见字如面。若我不能回来，望你勿等……但我还是想娶你。”\n信没寄出。他死在滹沱河畔。",
+            "初见 · 客店\n\n东阙醉入喉，幻境中她男装折扇，含笑戏弄：“你就是那个来找我的人？”\n我取出信，她念出“东阙吾妻”四字，声音轻颤：“他写了三遍才写对。”\n“我等了他一辈子，他没回来。”\n折扇扔在雨中，扇面写着：“若君归来时我已不在，望君勿念。”",
+            "七日 · 未央\n\n每日客店对坐，第六日她带我去未央城塔楼。“明天你要走了。”\n“你替我跟他说：东阙吾妻这四个字，我认了。我想他，一直想。”\n幻境崩塌，她消散如烟，只剩折扇落地。",
+            "归处 · 枯骨\n\n未央城北孤碑：“温氏无缺之墓”。\n我放下折扇与复刻信：“温无缺，我来看你了。他说他念了你一辈子，我也是。”\n风吹废墟，似有人轻念：“东阙吾妻，见字如面。”"
+        ], epilogue:"千年后未央城开满了野花，每一朵都像她当年折扇上的墨痕。" },
+        BaiChuYu: { name:"柏楚玉", title:"恨味 · 因爱生恨", imgKey:"baichuyu", content:[
+            "楔子 · 火\n\n河西冰窟，出土双刀刻着“恨味”。墓志铭：“因爱生恨，因恨成痴。刀名恨味，恨者未竟之愿，味者尝而复忆。”\n风雪中她红衣黑发，冷笑：“你又来了。”",
+            "初见 · 恨\n\n“他求我别喜欢他，我就恨他了。他走了，和你们所有人一样。”\n她把刀塞进我手心：“握着，这就是恨的味道——冷、疼，但放不下。”",
+            "七日 · 月牙泉\n\n她带我看月亮，喝烈酒。“他说日出好看但不如我。骗人。”\n第六夜山顶，她靠在我肩上：“替他告诉我——恨味两个字我懂了，一千年了，我还是想他。”",
+            "归处 · 枯骨\n\n冰窟深处，遗骸抱着双刀。我放下复刻刀：“恨味，我尝到了，很苦。你替他守了一千年，他记着你。”\n风过冰窟，刀刃轻鸣，如唤“恨味”。"
+        ], epilogue:"悬樽山顶的日出年年依旧，雪地上再无人刻字，但每一缕风都带着刀锋般的思念。" },
+        ZhaoEr: { name:"赵二", title:"宿敌 · 三百六十次圆月", imgKey:"zhaoer", content:[
+            "楔子 · 半块玉佩\n\n府衙旧档：“晋中原抗命护忠，贬为庶民，留半块玉佩予姓沈者。”\n他等了三十年，台阶上一滩水，不知是露还是泪。",
+            "初见 · 宿敌\n\n幻境中他坐在台阶上扔来酒壶：“打架！揍不了那个姓沈的就揍你。”\n从白天打到天黑，他瘫在地上：“他打不过我，但他说赢了我就要听他的——别查那个案子。”",
+            "七日 · 圆月\n\n“月亮圆的时候就是我想你的时候。三百六十次圆月，每次都想。”\n第七日城墙上，他把玉佩给我：“告诉他，下辈子别走了。”\n我转身：“他说他没有忘了你，只是回不来。”\n身后传来低笑：“……傻子。”",
+            "归处 · 枯骨\n\n滹沱河畔荒坟，两块玉佩拼合。\n“赵二，我来看你了。三百六十次圆月，每一次都想你，我也是。”\n河水哗哗，像那人笑着说“傻子”。"
+        ], epilogue:"每逢月圆，滹沱河面总浮着细碎银光，仿佛有人将玉佩拼了又拆，拆了又拼。" },
+        AYiNu: { name:"阿依奴", title:"月光 · 同病相怜", imgKey:"ayinu", content:[
+            "楔子 · 葡萄\n\n夏依园废墟，玉葡萄刻“月光”。手札：“他答应回来，骗人。我酿了月光酒，等了他三十年。”",
+            "初见 · 月光\n\n枯井边，她端着一碗暗红如血的酒。“沈寻……你也姓沈。”\n“你阿爹叫阿古力，滹沱河畔第三排第七个，名字我刻在碑上了。”\n她打碎酒碗，泪落如雨。",
+            "七日 · 祁连雪\n\n我带她去看碑，帮她酿月光酒。“他回不来，但我替他说——我回来了。”\n第七日她喝完酒：“谢谢你，让我知道有人记得我。”\n幻境消散，碗底刻着：“若君归来时我已不在，望君勿念。”",
+            "归处 · 枯骨\n\n坟前放下玉葡萄与照片。“阿依奴，你的酒我替你喝了，很苦，比恨味还苦。你等了三十年，我来晚了。”\n祁连山的雪落在肩头，像她轻声说“骗人”。"
+        ], epilogue:"月光酒的配方失传了，但每逢七夕，总有人看见夏依园的废墟里亮着一点如泪的碧光。" },
+        JiangShu: { name:"江叔", title:"假如 · 养父之隐", imgKey:"jiangshu", content:[
+            "楔子 · 玉佩\n\n我从小戴着半块玉佩。江叔说父母死于滹沱河之战。\n他叫江晏，是唯一的幸存者。他等一个人等了三十年，那个人姓沈，来自千年后。",
+            "初见 · 养父\n\n遗物中的信：“寻儿，我装死活下来，欠他三千条命。我捡到你，你的眼睛和他一样。”\n幻境中他坐在门槛上，夕阳如旧。",
+            "七日 · 滹沱河\n\n“我每晚都梦见滹沱河，活了三十年没有一天不想死。但我把你养大了。”\n第七日河边，他摸我的头：“替我说——对不起，我把你的孩子养大了，他很好。”\n“下辈子别等他了，去找他。”他笑着消散。",
+            "归处 · 枯骨\n\n滹沱河畔第三排第一个，拼合玉佩。“你不是懦夫，你是最好的养父。谢谢让我知道，有人可以等一个人这么久。”\n河水应声：“……寻儿。”"
+        ], epilogue:"江叔的坟前每年春天会长出一株陌生的花，有人说是从千年前飘来的种子。" },
+        JingNiang: { name:"京娘", title:"绳结 · 年上御姐", imgKey:"jingniang", content:[
+            "楔子 · 旧绳\n\n封桩库密室里一根旧绳打了七个结，第七个系着一个“沈”字。京娘记事：“第七结，沈。”",
+            "初见 · 恩怨\n\n斗笠遮面，刀锋冷厉。“第七个结系的是谁？”“不该问的别问。”\n她带我去密室，一具骸骨抱着刀：“他死在滹沱河，临死刻了我的名字。”",
+            "七日 · 守刀\n\n“我找了他三十年，守了他的刀一千年。”\n第七日她把刀给我：“带回去，让他知道第七个结系上了，没解开。”\n“下辈子别考古了，好好喜欢一个人。”",
+            "归处 · 枯骨\n\n骸骨前放下短刀：“京娘，第七个结系着沈字，你守了他一千年，我也记得你。”\n风呜呜响，像在叫“沈寻”。"
+        ], epilogue:"封桩库后来被改建为纪念馆，那根旧绳陈列在玻璃柜中，第七个结至今无人敢解。" },
+        WuMing: { name:"无名将军", title:"铁血 · 忠魂沉默", imgKey:"wuming", content:[
+            "楔子 · 金甲\n\n武成王庙地宫，金甲长戟。帛书：“吾名李奉先，朝廷削名。吾爱汝。迟到了一千年。”",
+            "初见 · 铁山\n\n金甲覆面，长戟如岳。“你知道吾？”“李奉先，你等的那个人姓沈，他死在滹沱河。”\n长戟落地：“吾恨自己没能保护他。”",
+            "七日 · 吾爱汝\n\n他教我长戟，天亮到天黑。“他怕吾死在滹沱河，想替吾活着。”\n第七日摘下面甲，眼中有泪：“替我说——吾爱汝。三个字，迟到了一千年。”",
+            "归处 · 枯骨\n\n金甲前扶正长戟：“李奉先，我来看你了。吾爱汝，他听到了。你们不是无名氏，我记得。”\n戟杆嗡嗡作响：“吾爱汝……吾爱汝……”"
+        ], epilogue:"每年寒食，武成王庙的地宫会传出一声悠长的戟鸣，像是有人在回应千年前那声未曾出口的告白。" },
+        FengJiSheng: { name:"冯继升", title:"匠心 · 机关匠师", imgKey:"fengjisheng", content:[
+            "楔子 · 木鸢\n\n梓匠居废墟，朽烂木鸢刻着“继升”。手札：“吾信他。他说一千年后人会飞，吾造了一辈子木鸢，没飞起来。”",
+            "初见 · 匠心\n\n他蹲在地上眉头紧锁：“翅膀角度不对。”\n“一千年后真的会飞，从北京到开封一个时辰。”他眼睛亮了：“他骗人，他说会回来。”",
+            "七日 · 飞天\n\n我画图纸，他削木头。第七日木鸢在风中晃晃悠悠飞了起来。他满脸泪：“飞起来了！他看到了吗？”\n“看到了，他一定很高兴。”",
+            "归处 · 枯骨\n\n坟前放下木鸢复刻品：“你的木鸢在博物馆里，我每次去都会想起你说‘吾信他’。你没有辜负他。”\n木鸢翅膀沙沙响，像在说谢谢。"
+        ], epilogue:"博物馆的木鸢旁多了一行小字：“此鸢曾飞，为一诺。”" },
+        TianYaKe: { name:"天涯客丙申", title:"永别 · 流浪侠客", imgKey:"tianyake", content:[
+            "楔子 · 密林\n\n藏月岗密林，长戟挂着布条“永别”。手札：“吾用了一辈子也没忘了‘永别’二字。他临终说‘替我跟所有人说我回来了’。吾欠他一句后会有期。”",
+            "初见 · 永别\n\n他倚树而坐，长戟斑驳。“替他说一句话。”“我回来了。”\n长戟落地，他哭得像个孩子。“他骗人……”\n“他没骗你，他想了一辈子。”",
+            "七日 · 后会有期\n\n他守了密林三十年。“替我说——永别那两个字收回。吾想他，想到死。”\n第七日我站在他面前：“后会有期，下辈子都会再见。”",
+            "归处 · 枯骨\n\n坟前放下长戟：“丙申，你的话我带到了。他说后会有期，我也说后会有期。有人记得你，我。”\n树叶沙沙，应着：“……后会有期。”"
+        ], epilogue:"藏月岗的密林从此长出了一条小径，尽头永远铺满月光，像是有人在等待一场迟到了千年的重逢。" }
+    };
+    
+    // 角色列表用于分线选择
+    const characterKeys = ["YaoYaoYao","YingYing","BaiChuYu","ZhaoEr","AYiNu","JiangShu","JingNiang","WuMing","FengJiSheng","TianYaKe"];
+    
+    let gameState = {
+        stage: "PROLOGUE",  // PROLOGUE, CHAPTER_SELECT, ROUTE_PLAY, EPILOGUE_ALL
+        currentChar: null,
+        contentIndex: 0,
+        affection: 0,
+        prologueStep: 0
+    };
+    
+    // UI元素
+    const speakerEl = document.getElementById("speakerName");
+    const dialogEl = document.getElementById("dialogText");
+    const choicesContainer = document.getElementById("choicesContainer");
+    const dayDisplay = document.getElementById("dayDisplay");
+    const affectionSpan = document.getElementById("affectionDisplay");
+    const spritePlaceholder = document.getElementById("spritePlaceholder");
+    const charSprite = document.getElementById("charSprite");
+    
+    function setSprite(charKey) {
+        if(!charKey) {
+            charSprite.style.display = "none";
+            spritePlaceholder.style.display = "block";
+            return;
+        }
+        const char = fullScripts[charKey];
+        if(char) {
+            spritePlaceholder.style.display = "none";
+            charSprite.style.display = "block";
+            charSprite.src = `images/${char.imgKey}.png`;
+            charSprite.alt = char.name;
+            charSprite.onerror = () => {
+                charSprite.style.display = "none";
+                spritePlaceholder.style.display = "block";
+                spritePlaceholder.innerText = `✨ ${char.name} · 缘起 ✨`;
+            };
+        } else {
+            charSprite.style.display = "none";
+            spritePlaceholder.style.display = "block";
+        }
+    }
+    
+    function updateAffectionUI() {
+        affectionSpan.innerText = `❤️ 羁绊 · ${gameState.affection>0?gameState.affection:'初见'}`;
+    }
+    
+    function render() {
+        if(gameState.stage === "PROLOGUE") {
+            speakerEl.innerText = "【 沈寻 · 考古手记 】";
+            const prologueTexts = [
+                "我叫沈寻。考古研究员。\n\n那页从五代墓葬中出土的手记上写着——\n“将军战于滹沱……全军覆没……朝廷削其名……碑不得立……后人无祭……”\n十个名字，十条被抹去的命。\n我以为我只是来找真相的。后来我发现，我在找的，是他们还活过的证据。",
+                "我站在滹沱河畔，风很大。地宫里的幽蓝色石头能编织过去的幻影。\n我喝下幻境之酒，决定去见一见那些被历史碾碎的人。\n他们等了一千年，等一句“我来看你了”。"
+            ];
+            dialogEl.innerText = prologueTexts[gameState.prologueStep] || prologueTexts[0];
+            dayDisplay.innerText = "序章 · 燕云初啼";
+            setSprite(null);
+            if(gameState.prologueStep === 0) {
+                choicesContainer.innerHTML = `<div class="choice-btn" data-choice="nextPrologue">✧ 翻开下一页 ✧</div>`;
+            } else {
+                choicesContainer.innerHTML = `<div class="choice-btn" data-choice="toChapterSelect">✧ 踏入幻境 · 缘起 ✧</div>`;
+            }
+        }
+        else if(gameState.stage === "CHAPTER_SELECT") {
+            speakerEl.innerText = "十段人生 · 十段错过";
+            dialogEl.innerText = "十道幻影在你身侧低语：“你只能陪一个人走过最后七日。” 选择你的归途。";
+            setSprite(null);
+            dayDisplay.innerText = "分岔 · 缘定一人";
+            let btns = "";
+            for(let key of characterKeys) {
+                btns += `<div class="choice-btn" data-route="${key}">✨ ${fullScripts[key].name} · ${fullScripts[key].title}</div>`;
+            }
+            choicesContainer.innerHTML = btns;
+        }
+        else if(gameState.stage === "ROUTE_PLAY") {
+            const char = fullScripts[gameState.currentChar];
+            setSprite(gameState.currentChar);
+            dayDisplay.innerText = `${char.name} · 缘线`;
+            updateAffectionUI();
+            const contentParts = char.content;
+            if(gameState.contentIndex < contentParts.length) {
+                speakerEl.innerText = char.name;
+                dialogEl.innerText = contentParts[gameState.contentIndex];
+                const isLast = (gameState.contentIndex === contentParts.length-1);
+                choicesContainer.innerHTML = isLast ? 
+                    `<div class="choice-btn" data-choice="finishRoute">✧ 归于现实 · 终章 ✧</div>` :
+                    `<div class="choice-btn" data-choice="nextContent">✧ 继续 · 共度朝夕 ✧</div>`;
+            } else {
+                // 显示结局独白
+                speakerEl.innerText = "终章 · 枯骨";
+                dialogEl.innerText = `${char.epilogue}\n\n—— 你跪在坟前，将遗物轻放。“后会有期。”风吹过旷野，像一声跨越千年的应答。`;
+                choicesContainer.innerHTML = `<div class="choice-btn" data-choice="backToSelect">✧ 重历红尘 · 再择一人 ✧</div>`;
+            }
+        }
+        else if(gameState.stage === "EPILOGUE_ALL") {
+            speakerEl.innerText = "终章 · 归处";
+            dialogEl.innerText = "我站在滹沱河畔。夕阳西下，身后是十座坟。\n十个人，十条被历史碾碎的生命。\n我从背包里拿出十样遗物，放在十座坟前。\n“我来看你们了。你们的信，我收到了。你们的话，我替你们带到了。”\n我跪下来，磕了十个头。\n“后会有期。”\n风吹过滹沱河，像是十个人在远处轻轻应了一声——“后会有期。”\n碑上的名字在夕阳下闪闪发光。\n他们不是无名氏。\n他们被人记得。\n被我。永远。";
+            setSprite(null);
+            dayDisplay.innerText = "缘起 · 终章";
+            choicesContainer.innerHTML = `<div class="choice-btn" data-choice="resetFull">✧ 重回燕云 · 再续前缘 ✧</div>`;
+        }
+    }
+    
+    function applyChoice(choice, routeKey=null) {
+        if(choice === "nextPrologue") {
+            gameState.prologueStep++;
+            render();
+        }
+        else if(choice === "toChapterSelect") {
+            gameState.stage = "CHAPTER_SELECT";
+            render();
+        }
+        else if(choice === "nextContent") {
+            gameState.contentIndex++;
+            render();
+        }
+        else if(choice === "finishRoute") {
+            // 当前角色线结束，展示结局后返回选人界面（或显示全员结局）
+            gameState.stage = "EPILOGUE_ALL";
+            render();
+        }
+        else if(choice === "backToSelect") {
+            gameState.stage = "CHAPTER_SELECT";
+            gameState.currentChar = null;
+            gameState.contentIndex = 0;
+            render();
+        }
+        else if(choice === "resetFull") {
+            resetGame();
+        }
+        else if(routeKey) {
+            // 选择角色线
+            gameState.currentChar = routeKey;
+            gameState.contentIndex = 0;
+            gameState.stage = "ROUTE_PLAY";
+            render();
+        }
+    }
+    
+    function resetGame() {
+        gameState = {
+            stage: "PROLOGUE",
+            currentChar: null,
+            contentIndex: 0,
+            affection: 0,
+            prologueStep: 0
+        };
+        render();
+    }
+    
+    // 事件监听
+    document.getElementById("resetGameBtn").addEventListener("click", resetGame);
+    document.getElementById("choicesContainer").addEventListener("click", (e) => {
+        const btn = e.target.closest(".choice-btn");
+        if(!btn) return;
+        if(btn.dataset.choice) {
+            applyChoice(btn.dataset.choice);
+        } else if(btn.dataset.route) {
+            applyChoice(null, btn.dataset.route);
+        }
+    });
+    
+    resetGame();
+</script>
+</body>
+</html>
